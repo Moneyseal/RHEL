@@ -1,0 +1,157 @@
+Notice that there are several versions of this Application Stream. Every time a package is updated a new stream version is generated to snapshot the exact versions of each package together as a stream
+
+The container-tools version number is an arbitrary number representing all of the tools tested together in the Application Stream. This includes, Podman, Buildah, Skopeo, CRIU, etc. 
+
+container-tools:rhel8 - this is the fast moving stream, it's updated once every 12 weeks and generally fixes bugs by rolling to new versions
+container-tools:1.0 - this was released with RHEL 8.0 and supported for 24 months, and receives bug fixes with back ports that keep the API and CLI interfaces stable
+container-tools:2.0 - this was released with RHEL 8.2 and supported for 24 months, and receives bug fixes with back ports that keep the API and CLI interfaces stable
+
+Podman doesn't require a daemon and it doesn't require root. These two features really set Podman apart from Docker. Even when you use the Docker CLI as a user, it connects to a daemon running as root, so the user always has the ability escalate a process to root and do whatever they want on the system. Worse, it bypasses sudo rules so it's not easy to track down who did it.
+
+Rootless containers use a kernel feature called User Namespaces. This maps the one or more user IDs in the container to one or more user IDs outside of the container. This includes the root user ID in the container as well as any others which might be used by programs like Nginx or Apache.
+
+
+Image vs. Scratch: Do you want to start with an existing container image as the source for your new container image, or would you prefer to build completely from scratch? Source images are the most common route, but it can be nice to build from scratch if you have small, statically linked binaries.
+
+Inside vs. Outside: Do you want to execute the commands to build the next container image layer inside the container, or would you prefer to use the tools on the host to build the image? This is completely new concept with Buildah, but with existing container engines, you always build from within the container. Building outside the container image can be useful when you want to build a smaller container image, or an image that will always be ran read only, and never built upon. Things like Java would normally be built in the container because they typically need a JVM running, but installing RPMs might happen from outside because you don't want the RPM database in the container.
+
+External vs. Internal Data: Do you have everything you need to build the image from within the image? Or, do you need to access cached data outside of the build process? For example, It might be convenient to mount a large cached RPM cache inside the container during build, but you would never want to carry that around in the production image. The use cases for build time mounts range from SSH keys to Java build artifacts - for more ideas, see this GitHub issue.
+
+
+# Application Streams 
+yum module list | grep container-tools								# View streams
+yum module info container-tools:rhel8								# Description of fast moving stream
+yum module install -y container-tools:rhel8							# Install fast moving Application Stream
+yum module list --installed									# Inspect set of tools installed
+yum module repoquery --installed container-tools						# Look at packages Installed
+podman -v											# Get the version of podman that was installed
+yum module remove -y container-tools								# Cleanup environment and start from scratch
+yum module reset -y container-tools
+yum module info container-tools:1.0								# Inspect the stable stream that was released in RHEL 8.0
+yum module install -y --allowerasing container-tools:1.0					# Install it
+podman -v											# Get the version of podman that was installed
+yum module remove -y container-tools								# Remove
+yum module reset -y container-tools								# Reset
+yum module install -y container-tools:rhel8							# Go back to latest version of container-tools
+
+
+# Podman 
+podman pull ubi8										# Pull an image
+podman images											# List locally cached images
+podman run -it ubi8 bash									# Start a container and run bash interactively in the local terminal
+exit												# When ready, exit
+podman ps -a											# List running containers
+su - rhel											# Switch to rhel user
+export XDG_RUNTIME_DIR=/home/rhel								# Set env vars 
+podman run -id ubi8 bash									# Create a simple container in the background 
+pstree -Slnc											# Inspect the process tree on the system 
+podman run -id registry.access.redhat.com/rhscl/nginx-114-rhel7 nginx -g 'daemon off;'		# Start an nginx container
+podman top -l args huser hgroup hpid user group pid seccomp label				# Execute the Podman bash command
+cat /etc/subuid											# 1st num is starting user ID, 2nd num is num of user IDs from initial num
+podman kill --all										# Stop all running containers
+podman rm --all											# Remove all actively defined containers
+podman rmi --all										# Delete all locally cached iamges
+
+
+# Buildah 
+buildah unshare											# Make Buildah think it is running as root w/o making it root
+whoami												# Your shell thinks you are root
+touch /etc/shadow										# Proof that you are not
+buildah from ubi8										# Declare what image you want to start with as a source
+												  In this case, start with the Red Hat Universal Base Image
+												  This will create a "reference" to what Buildah calls a 
+												  "working container" - think of them as a starting point to 
+												  attach mounts and commands.							buildah containers										# Mount the image source
+												  In effect, this will trigger the graph driver to do its magic, pull the 
+												  image layers together, add a working copy-on-write layer, and mount it 
+												  so that we can access it just like any directory on the system
+buildah mount ubi8-working-container								# Add a single file to the new container image layer
+echo "hello world" > $(buildah mount ubi8-working-container)/etc/hello.conf			# List the directory in the copy-on-write layer. 
+ls -alh $(buildah mount ubi8-working-container)/etc/      					# Should see hello.conf
+cat $(buildah mount ubi8-working-container)/etc/hello.conf					# Cat the file, should see text you expect
+buildah commit ubi8-working-container ubi8-hello						# Commit this copy-on-write layer as a new image layer
+buildah images											# We can see the new image layer in our local cach
+podman images											# Podman, Buildah, and CRI-O all use the same image store
+buildah delete -a										# delete references to "working containers" 
+												  and completely remove their mounts
+buildah images											# View new image
+podman images											# This could be pushed to a registry server to be shared with others
+
+# Using tools outside the container
+WORKING_MOUNT=$(buildah mount $(buildah from scratch))						# 
+echo $WORKING_MOUNT										# 
+ls -alh $WORKING_MOUNT										# 
+yum install --installroot $WORKING_MOUNT bash coreutils --releasever 8 				# 
+  --setopt install_weak_deps=false -y								# 
+yum clean all -y --installroot $WORKING_MOUNT --releasever 8					# 
+ls -alh $WORKING_MOUNT										# 
+buildah commit working-container minimal							# 
+podman run -it minimal bash									# 
+exit												# 
+buildah delete -a										# 
+
+# Esternal Build Time Mounts 
+mkdir ~/data											# 
+dd if=/dev/zero of=~/data/test.bin bs=1MB count=100						# 
+ls -alh ~/data/test.bin										# 
+buildah from ubi8										# 
+buildah mount ubi8-working-container								# 
+buildah run -v ~/data:/data:Z ubi8-working-container dd 					# 
+  if=/data/test.bin of=/etc/small-test.bin bs=100 count=2					# 
+buildah commit ubi8-working-container ubi8-data							# 
+buildah delete -a										# 
+podman run -it ubi8-data ls -alh /etc/small-test.bin						# 
+exit 												# 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

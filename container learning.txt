@@ -1,0 +1,6 @@
+https://developers.redhat.com/courses/subsystems/oci-tools
+https://lab.redhat.com/appstream-manage
+https://developers.redhat.com/topics/containers
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/building_running_and_managing_containers/index
+https://developers.redhat.com/blog/2018/11/20/buildah-podman-containers-without-daemons#additional_resources
+https://www.redhat.com/en/blog/rhel-8-enables-containers-tools-software-craftsmanship-0
