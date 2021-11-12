@@ -1,0 +1,62 @@
+Determine which user account is running the process within your container.
+- Find USER line in Dockerfile of the image to determine the UID the container is running as 
+- Or set the user explicitly using the --user flag with podman run: podman run --user <id>
+
+Enter Podman’s user namespace, and grant this user permissions to write to your directory.
+- Rootless Podman uses user namespaces to run container processes
+- The command podman unshare allows you to run a command inside the Podman user namespace
+- Change the owner of the directory inside this namespace, to ensure your container user can write to it.
+- Change the UID/GID of the volume directory in the rootless Podman user namespace, to make it the same as the UID/GID of the container user
+- See how container views the filesystem: podman unshare ls -al /volume/path
+- Use the chown command to set the UID/GID of the shared directory: podman unshare chown <UID>:<UID> -R /volume/path
+
+Mount the volume when you run the container, add the proper SELinux label to allow the container user to write.
+podman run -it --rm -name <name> \
+-v /host/path:/container-path:Z \
+docker.io/image/name
+
+- The :Z flag is added to the volume. 
+- This tells Podman to label the volume content as “private unshared” with SELinux. 
+- This label allows the container to write to the volume, but doesn’t allow the volume to be shared with other containers. 
+- Make sure that you are good now: ls -al / | grep <container-path>
+
+
+podman run --user 200 -it -v $(pwd)/myfolder:/mnt/myfolder:Z busybox
+podman unshare ls -al /home/tom/myshares
+podman unshare chown 200:200 -R /home/tom/myshares/nexus2
+podman run -it --rm --name nexus2 \
+    -v /home/tom/myshares/nexus2:/sonatype-work:Z \
+    sonatype/nexus /bin/sh
+ls -al / | grep sonatype-work
+
+
+
+https://opensource.com/article/19/2/how-does-rootless-podman-work
+cat /etc/subuid
+cat /etc/subgid
+The format of these files is username:STARTUID:TOTALUIDS
+Be careful when allocating these UID ranges that they don't overlap with any real UID on the system.
+default UID is defined in etc/passwd
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
