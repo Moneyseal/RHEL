@@ -1,0 +1,54 @@
+# Describe an AMI
+aws ec2 describe-images \
+    --region <region-name> \
+    --image-ids <ami-id>
+
+aws ec2 describe-images \
+    --region us-west-1 \
+    --image-ids ami-053ac55bdcfe96e85
+
+# View Key Pair with specified name
+aws ec2 describe-key-pairs --key-name <key-name>
+aws ec2 describe-key-pairs --key-name MoKey
+
+# Launch an instance in the specified subnet of a VPC.
+aws ec2 run-instances \
+  --image-id <ami-id> \
+  --key-name <key-name> \
+  --count 1 \
+  --instance-type <instance-type> \
+  --security-group-ids <sg-id> \
+  --subnet-id <subnet-id> 
+
+aws ec2 run-instances \
+  --image-id ami-053ac55bdcfe96e85 \
+  --key-name MoKey \
+  --count 1 \
+  --instance-type t3.large \
+  --security-group-ids sg-0c2fbf5995723151d \
+  --subnet-id subnet-0cfdd65c8dc98dcce \
+  --associate-public-ip-address \
+  --block-device-mappings file://mapping.json
+
+# Describe an EC2 instance with specified ID
+aws ec2 describe-instances --instance-id <id>
+aws ec2 describe-instances --instance-id i-06cce9bb8a6e5b062
+
+# To start an Amazon EC2 instance
+aws ec2 start-instances --instance-ids <id>
+aws ec2 start-instances --instance-ids i-06cce9bb8a6e5b062
+
+# Associate Elastic IP with an EC2
+aws ec2 associate-address \
+    --instance-id <inst-id> \
+    --allocation-id <id>
+
+aws ec2 associate-address \
+    --instance-id i-06cce9bb8a6e5b062 \
+    --allocation-id eipalloc-01c0492d8b1838868
+
+
+
+
+
+

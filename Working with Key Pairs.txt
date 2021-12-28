@@ -1,0 +1,20 @@
+# Creating a key pair
+aws ec2 create-key-pair \
+    --key-name <key-name> \
+    --query 'KeyMaterial' \
+    --output text > <key-name.pem>
+
+# My command 
+aws ec2 create-key-pair \
+    --key-name MoKey \
+    --query 'KeyMaterial' \
+    --output text > MoKey.pem
+
+# Setting proper permissions
+chmod 400 MoKey.pem
+
+# View key pair
+aws ec2 describe-key-pairs --key-name MoKey
+
+# Delete Key Pair
+aws ec2 delete-key-pair --key-name MyKeyPair

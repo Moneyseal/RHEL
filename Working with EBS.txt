@@ -1,0 +1,27 @@
+# Create a EBS volume
+aws ec2 create-volume \
+    --volume-type <type> \
+    --size <size> \
+    --availability-zone <region>
+
+# My command
+aws ec2 create-volume \
+    --volume-type gp3 \
+    --size 32 \
+    --availability-zone us-west-1a
+
+# Attache a volume to an ec2
+aws ec2 attach-volume \
+    --volume-id <vol-id> \
+    --instance-id <inst-id> \
+    --device /dev/sdf
+
+# My command
+aws ec2 attach-volume \
+    --volume-id <vol-id> \
+    --instance-id <inst-id> \
+    --device /dev/sdf
+
+# View the volume by volume ID 
+aws ec2 describe-volumes \
+    --volume-ids <vol-id>
